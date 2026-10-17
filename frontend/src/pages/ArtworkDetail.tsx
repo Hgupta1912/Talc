@@ -5,7 +5,7 @@ import { MasonryGrid } from '../components/ArtworkGrid'
 import Critiques from '../components/Critiques'
 import type { MenuItem } from '../components/ui'
 import { Avatar, ConfirmDialog, KebabMenu, TagChip } from '../components/ui'
-import { useApp } from '../store/AppContext'
+import { useApp } from '../store/useApp'
 import NotFound from './NotFound'
 
 function Lightbox({
@@ -51,20 +51,61 @@ function Lightbox({
 export default function ArtworkDetail() {
 	const { id } = useParams<{ id: string }>()
 	const navigate = useNavigate()
-	const { artworks, users, currentUser, deleteArtwork, toast } = useApp()
+	const {
+		artworks,
+		users,
+		currentUser,
+		deleteArtwork,
+		loadArtwork,
+		loadComments,
+		toast,
+	} = useApp()
 	const [expanded, setExpanded] = useState(false)
 	const [confirming, setConfirming] = useState(false)
+	// Which artwork id finished loading, and whether it was found.
+	const [loaded, setLoaded] = useState<{ id: string; found: boolean } | null>(
+		null,
+	)
+	const status =
+		!loaded || loaded.id !== id ? 'loading' : loaded.found ? 'ready' : 'missing'
+
+	useEffect(() => {
+		if (!id) return
+		let cancelled = false
+		Promise.all([loadArtwork(id), loadComments(id)]).then(([art]) => {
+			if (!cancelled) setLoaded({ id, found: Boolean(art) })
+		})
+		return () => {
+			cancelled = true
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [id])
 
 	const art = artworks.find((a) => a.id === id)
 	const artist = art ? users[art.artistId] : undefined
-	if (!art || !artist) return <NotFound what="artwork" />
+	if (!art || !artist) {
+		if (status === 'loading')
+			return (
+				<div className="mx-auto max-w-[1120px] px-4 pt-12 sm:px-6">
+					<div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-10">
+						<div className="skeleton aspect-square rounded-3xl" />
+						<div className="space-y-4 pt-5">
+							<div className="skeleton h-4 w-32 rounded" />
+							<div className="skeleton h-10 w-64 rounded" />
+							<div className="skeleton h-24 w-full rounded" />
+						</div>
+					</div>
+				</div>
+			)
+		return <NotFound what="artwork" />
+	}
 
 	const isOwner = currentUser?.id === art.artistId
 	const related = artworks
 		.filter(
 			(a) =>
 				a.id !== art.id &&
-				(a.medium === art.medium || a.tags.some((t) => art.tags.includes(t))),
+				(a.medium === art.medium || a.genre === art.genre),
 		)
 		.slice(0, 10)
 	const published = new Date(art.createdAt).toLocaleDateString('en-US', {
@@ -117,7 +158,7 @@ export default function ArtworkDetail() {
 
 				<aside className="lg:pt-5">
 					<div className="flex items-center justify-between">
-						<p className="eyebrow">{art.mediumLabel || art.medium}</p>
+						<p className="eyebrow">{art.medium}</p>
 						<KebabMenu items={menu} />
 					</div>
 
@@ -156,20 +197,13 @@ export default function ArtworkDetail() {
 						</div>
 					)}
 
-					{art.tags.length > 0 && (
+					{art.genre && (
 						<div className="mt-5 flex flex-wrap gap-1.5">
-							{art.tags.map((t) => (
-								<Link key={t} to={`/search?q=${encodeURIComponent(t)}`}>
-									<TagChip>{t}</TagChip>
-								</Link>
-							))}
+							<TagChip>{art.genre}</TagChip>
 						</div>
 					)}
 
-					<p className="mt-4 flex gap-4 text-xs text-muted">
-						<span>Published {published}</span>
-						{art.dimensions && <span>{art.dimensions}</span>}
-					</p>
+					<p className="mt-4 text-xs text-muted">Published {published}</p>
 
 					{isOwner && (
 						<div className="mt-6 border-t border-blush-deep pt-6">
@@ -184,7 +218,7 @@ export default function ArtworkDetail() {
 				</aside>
 			</div>
 
-			<Critiques artworkId={art.id} />
+			<Critiques artworkId={art.id} artworkOwnerId={art.artistId} />
 
 			{related.length > 0 && (
 				<section className="mt-20">
@@ -207,9 +241,8 @@ export default function ArtworkDetail() {
 				onClose={() => setConfirming(false)}
 				title="Delete this artwork?"
 				message="This will also remove all of its comments. This action cannot be undone."
-				onConfirm={() => {
-					deleteArtwork(art.id)
-					navigate('/profile')
+				onConfirm={async () => {
+					if (await deleteArtwork(art.id)) navigate('/profile')
 				}}
 			/>
 		</div>

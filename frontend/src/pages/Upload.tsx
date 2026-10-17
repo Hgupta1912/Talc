@@ -2,24 +2,37 @@ import { ChevronDown, ChevronLeft, Upload as UploadIcon, X } from 'lucide-react'
 import type { ChangeEvent, FormEvent, ReactNode } from 'react'
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MEDIUMS } from '../data/mock'
-import { useApp } from '../store/AppContext'
+import { GENRES, MEDIUMS } from '../data/constants'
+import { useApp } from '../store/useApp'
 
-const MAX_MB = 20
+const MAX_MB = 10 // backend limit
 const ACCEPT = ['image/jpeg', 'image/png', 'image/webp']
 
 interface UploadForm {
 	title: string
 	description: string
 	medium: string
-	tags: string
+	genre: string
 	feedbackOn: string
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field({
+	label,
+	optional,
+	children,
+}: {
+	label: string
+	optional?: boolean
+	children: ReactNode
+}) {
 	return (
 		<label className="block">
-			<span className="mb-2 block text-[13px] font-semibold">{label}</span>
+			<span className="mb-2 block text-[13px] font-semibold">
+				{label}
+				{optional && (
+					<span className="ml-1.5 font-normal text-faint">optional</span>
+				)}
+			</span>
 			{children}
 		</label>
 	)
@@ -27,16 +40,18 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 
 export default function Upload() {
 	const navigate = useNavigate()
-	const { createArtwork, toast } = useApp()
+	const { createArtwork } = useApp()
 	const inputRef = useRef<HTMLInputElement>(null)
+	const [file, setFile] = useState<File | null>(null)
 	const [preview, setPreview] = useState<string | null>(null)
+	const [publishing, setPublishing] = useState(false)
 	const [dragging, setDragging] = useState(false)
 	const [error, setError] = useState('')
 	const [form, setForm] = useState<UploadForm>({
 		title: '',
 		description: '',
 		medium: '',
-		tags: '',
+		genre: '',
 		feedbackOn: '',
 	})
 
@@ -56,26 +71,40 @@ export default function Upload() {
 			return setError('Please choose a JPG, PNG or WEBP file.')
 		if (file.size > MAX_MB * 1024 * 1024)
 			return setError(`That file is over ${MAX_MB}MB.`)
-		setPreview(URL.createObjectURL(file)) // TODO: upload to real storage and keep the returned URL
+		setFile(file)
+		setPreview(URL.createObjectURL(file))
 	}
 
-	const canPublish = Boolean(preview && form.title.trim() && form.medium)
+	const clearFile = () => {
+		setFile(null)
+		setPreview(null)
+		if (inputRef.current) inputRef.current.value = ''
+	}
 
-	const publish = (e: FormEvent) => {
+	// The backend requires an image, title, medium, genre and focus.
+	const canPublish = Boolean(
+		file &&
+			form.title.trim() &&
+			form.medium &&
+			form.genre &&
+			form.feedbackOn.trim() &&
+			!publishing,
+	)
+
+	const publish = async (e: FormEvent) => {
 		e.preventDefault()
-		if (!canPublish || !preview) return
-		const art = createArtwork({
+		if (!canPublish || !file) return
+		setPublishing(true)
+		const art = await createArtwork({
+			file,
 			title: form.title.trim(),
 			description: form.description.trim(),
 			medium: form.medium,
+			genre: form.genre,
 			feedbackOn: form.feedbackOn.trim(),
-			tags: form.tags
-				.split(',')
-				.map((t) => t.trim())
-				.filter(Boolean),
-			image: preview,
 		})
-		navigate(`/art/${art.id}`)
+		setPublishing(false)
+		if (art) navigate(`/art/${art.id}`)
 	}
 
 	return (
@@ -131,7 +160,7 @@ export default function Upload() {
 								/>
 								<button
 									type="button"
-									onClick={() => setPreview(null)}
+									onClick={clearFile}
 									className="absolute right-3 top-3 rounded-full bg-cream p-2 shadow"
 									aria-label="Remove image"
 								>
@@ -172,7 +201,7 @@ export default function Upload() {
 							onChange={set('title')}
 						/>
 					</Field>
-					<Field label="Description">
+					<Field label="Description" optional>
 						<textarea
 							className="field min-h-[88px] resize-y"
 							placeholder="Tell us about the idea, process, or story behind this piece"
@@ -199,13 +228,23 @@ export default function Upload() {
 								/>
 							</span>
 						</Field>
-						<Field label="Tags">
-							<input
-								className="field"
-								placeholder="Abstract, portrait, nature…"
-								value={form.tags}
-								onChange={set('tags')}
-							/>
+						<Field label="Genre">
+							<span className="relative block">
+								<select
+									className="field appearance-none pr-9"
+									value={form.genre}
+									onChange={set('genre')}
+								>
+									<option value="">Select genre</option>
+									{GENRES.map((g) => (
+										<option key={g}>{g}</option>
+									))}
+								</select>
+								<ChevronDown
+									size={16}
+									className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2"
+								/>
+							</span>
 						</Field>
 					</div>
 					<Field label="What do you want feedback on?">
@@ -218,20 +257,19 @@ export default function Upload() {
 					</Field>
 					<div className="flex items-center justify-end gap-3 pt-2">
 						<button
-							type="button"
-							className="btn-ghost"
-							onClick={() => toast('Draft saved')}
-						>
-							Save draft
-						</button>
-						<button
 							type="submit"
 							disabled={!canPublish}
 							className="btn-primary"
 						>
-							Publish artwork
+							{publishing ? 'Publishing…' : 'Publish artwork'}
 						</button>
 					</div>
+					{!canPublish && !publishing && (
+						<p className="text-right text-xs text-faint">
+							Add an image, title, medium, genre, and what you want feedback
+							on.
+						</p>
+					)}
 				</div>
 			</form>
 		</div>

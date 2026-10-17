@@ -2,7 +2,7 @@ import type { LucideIcon } from 'lucide-react'
 import { Ellipsis, Trash2 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
-import { useApp } from '../store/AppContext'
+import { useApp } from '../store/useApp'
 import type { User } from '../types/canvas'
 
 interface AvatarProps {

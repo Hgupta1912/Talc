@@ -1,48 +1,43 @@
-import { ChevronDown, Heart, Pencil, Trash2 } from 'lucide-react'
+import { ChevronDown, Pencil, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { CRITIQUE_TAGS } from '../data/mock'
-import { useApp } from '../store/AppContext'
-import type { Comment, CommentInput } from '../types/canvas'
+import { useApp } from '../store/useApp'
+import type { Comment } from '../types/canvas'
 import { timeAgo } from '../utils/time'
-import { Avatar, ConfirmDialog, EmptyState, KebabMenu, TagChip } from './ui'
+import type { MenuItem } from './ui'
+import { Avatar, ConfirmDialog, EmptyState, KebabMenu } from './ui'
 
-const MAX = 1000
-type SortMode = 'helpful' | 'newest'
+const MAX = 2000 // backend limit
+type SortMode = 'oldest' | 'newest'
 
 interface CommentFormProps {
-	initial?: CommentInput
+	initial?: string
 	submitLabel: string
-	onSubmit: (input: CommentInput) => void
+	onSubmit: (body: string) => Promise<boolean>
 	onCancel?: () => void
 	compact?: boolean
 }
 
 function CommentForm({
-	initial = { body: '', tags: [] },
+	initial = '',
 	submitLabel,
 	onSubmit,
 	onCancel,
 	compact = false,
 }: CommentFormProps) {
-	const [body, setBody] = useState(initial.body)
-	const [tags, setTags] = useState<string[]>(initial.tags)
-	const toggle = (t: string) =>
-		setTags((cur) =>
-			cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t],
-		)
-	const canSubmit = body.trim().length > 0
+	const [body, setBody] = useState(initial)
+	const [saving, setSaving] = useState(false)
+	const canSubmit = body.trim().length > 0 && !saving
 
 	return (
 		<form
-			onSubmit={(e) => {
+			onSubmit={async (e) => {
 				e.preventDefault()
 				if (!canSubmit) return
-				onSubmit({ body: body.trim(), tags })
-				if (!onCancel) {
-					setBody('')
-					setTags([])
-				}
+				setSaving(true)
+				const ok = await onSubmit(body.trim())
+				setSaving(false)
+				if (ok && !onCancel) setBody('')
 			}}
 		>
 			<textarea
@@ -53,13 +48,6 @@ function CommentForm({
 				autoFocus={!!onCancel}
 				className="w-full resize-y border-b border-blush-deep bg-transparent pb-3 text-sm leading-relaxed outline-none placeholder:text-faint"
 			/>
-			<div className="mt-3 flex flex-wrap gap-1.5">
-				{CRITIQUE_TAGS.map((t) => (
-					<TagChip key={t} active={tags.includes(t)} onClick={() => toggle(t)}>
-						{t}
-					</TagChip>
-				))}
-			</div>
 			<div className="mt-4 flex items-center justify-end gap-3">
 				<span className="text-xs text-faint">
 					{body.length}/{MAX}
@@ -70,28 +58,39 @@ function CommentForm({
 					</button>
 				)}
 				<button type="submit" disabled={!canSubmit} className="btn-primary">
-					{submitLabel}
+					{saving ? 'Saving…' : submitLabel}
 				</button>
 			</div>
 		</form>
 	)
 }
 
-function CommentCard({ comment }: { comment: Comment }) {
-	const {
-		users,
-		currentUser,
-		editComment,
-		deleteComment,
-		toggleHelpful,
-		helpfulVotes,
-	} = useApp()
+function CommentCard({
+	comment,
+	artworkOwnerId,
+}: {
+	comment: Comment
+	artworkOwnerId: string
+}) {
+	const { users, currentUser, editComment, deleteComment } = useApp()
 	const [editing, setEditing] = useState(false)
 	const [confirming, setConfirming] = useState(false)
 	const author = users[comment.authorId]
 	const isMine = currentUser?.id === comment.authorId
-	const voted = helpfulVotes.has(comment.id)
+	const ownsArtwork = currentUser?.id === artworkOwnerId
 	if (!author) return null
+
+	// Backend rules: only the commenter can edit; the commenter or the artist can delete.
+	const menu: MenuItem[] = []
+	if (isMine)
+		menu.push({ label: 'Edit', icon: Pencil, onClick: () => setEditing(true) })
+	if (isMine || ownsArtwork)
+		menu.push({
+			label: 'Delete',
+			icon: Trash2,
+			danger: true,
+			onClick: () => setConfirming(true),
+		})
 
 	return (
 		<li className="border-b border-blush-deep py-6 first:pt-2 last:border-0">
@@ -110,62 +109,29 @@ function CommentCard({ comment }: { comment: Comment }) {
 							</Link>
 							<span className="text-xs text-muted">
 								{timeAgo(comment.createdAt)}
-								{comment.edited && ' · edited'}
 							</span>
 						</p>
-						{isMine && !editing && (
-							<KebabMenu
-								items={[
-									{
-										label: 'Edit',
-										icon: Pencil,
-										onClick: () => setEditing(true),
-									},
-									{
-										label: 'Delete',
-										icon: Trash2,
-										danger: true,
-										onClick: () => setConfirming(true),
-									},
-								]}
-							/>
-						)}
+						{menu.length > 0 && !editing && <KebabMenu items={menu} />}
 					</div>
 
 					{editing ? (
 						<div className="mt-3 rounded-2xl bg-cream p-4">
 							<CommentForm
 								compact
-								initial={{ body: comment.body, tags: comment.tags }}
+								initial={comment.body}
 								submitLabel="Save"
 								onCancel={() => setEditing(false)}
-								onSubmit={(input) => {
-									editComment(comment.id, input)
-									setEditing(false)
+								onSubmit={async (body) => {
+									const ok = await editComment(comment, body)
+									if (ok) setEditing(false)
+									return ok
 								}}
 							/>
 						</div>
 					) : (
-						<>
-							{comment.tags.length > 0 && (
-								<div className="mt-2 flex flex-wrap gap-1.5">
-									{comment.tags.map((t) => (
-										<TagChip key={t}>{t}</TagChip>
-									))}
-								</div>
-							)}
-							<p className="mt-3 whitespace-pre-line text-[14px] leading-relaxed text-ink/85">
-								{comment.body}
-							</p>
-							<button
-								onClick={() => toggleHelpful(comment.id)}
-								disabled={!currentUser || isMine}
-								className={`mt-3 inline-flex items-center gap-1.5 text-xs transition ${voted ? 'text-coral' : 'text-muted hover:text-ink'} disabled:cursor-default`}
-							>
-								<Heart size={14} fill={voted ? 'currentColor' : 'none'} />
-								Helpful <span className="text-faint">{comment.helpful}</span>
-							</button>
-						</>
+						<p className="mt-2 whitespace-pre-line text-[14px] leading-relaxed text-ink/85">
+							{comment.body}
+						</p>
 					)}
 				</div>
 			</div>
@@ -173,24 +139,34 @@ function CommentCard({ comment }: { comment: Comment }) {
 				open={confirming}
 				onClose={() => setConfirming(false)}
 				title="Delete this comment?"
-				message="Your critique will be permanently removed."
-				onConfirm={() => deleteComment(comment.id)}
+				message={
+					isMine
+						? 'Your critique will be permanently removed.'
+						: 'This critique will be permanently removed from your artwork.'
+				}
+				onConfirm={() => deleteComment(comment)}
 			/>
 		</li>
 	)
 }
 
-export default function Critiques({ artworkId }: { artworkId: string }) {
+export default function Critiques({
+	artworkId,
+	artworkOwnerId,
+}: {
+	artworkId: string
+	artworkOwnerId: string
+}) {
 	const { comments, currentUser, addComment } = useApp()
-	const [sort, setSort] = useState<SortMode>('helpful')
+	const [sort, setSort] = useState<SortMode>('oldest')
 
 	const list = useMemo(() => {
 		const forArt = comments.filter((c) => c.artworkId === artworkId)
-		return [...forArt].sort((a, b) =>
-			sort === 'helpful'
-				? b.helpful - a.helpful
-				: new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-		)
+		return [...forArt].sort((a, b) => {
+			const diff =
+				new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+			return sort === 'oldest' ? diff : -diff
+		})
 	}, [comments, artworkId, sort])
 
 	return (
@@ -213,8 +189,8 @@ export default function Critiques({ artworkId }: { artworkId: string }) {
 							onChange={(e) => setSort(e.target.value as SortMode)}
 							className="appearance-none rounded-lg bg-transparent py-1.5 pl-2 pr-8 text-sm font-semibold text-ink outline-none hover:bg-cream/60"
 						>
-							<option value="helpful">Most helpful</option>
-							<option value="newest">Newest</option>
+							<option value="oldest">Oldest first</option>
+							<option value="newest">Newest first</option>
 						</select>
 						<ChevronDown
 							size={16}
@@ -231,7 +207,7 @@ export default function Critiques({ artworkId }: { artworkId: string }) {
 						<div className="flex-1">
 							<CommentForm
 								submitLabel="Post critique"
-								onSubmit={(input) => addComment(artworkId, input)}
+								onSubmit={(body) => addComment(artworkId, body)}
 							/>
 						</div>
 					</div>
@@ -258,7 +234,11 @@ export default function Critiques({ artworkId }: { artworkId: string }) {
 			) : (
 				<ul className="mt-8">
 					{list.map((c) => (
-						<CommentCard key={c.id} comment={c} />
+						<CommentCard
+							key={c.id}
+							comment={c}
+							artworkOwnerId={artworkOwnerId}
+						/>
 					))}
 				</ul>
 			)}
