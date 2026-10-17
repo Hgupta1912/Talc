@@ -1,8 +1,7 @@
 const {
   findUserById,
   findUserByUsername,
-  findPublicUserByUsername,
-  findPublicUsers,
+  findUserProfileByUsername,
   updateUser,
 } = require('../db/queries.js');
 
