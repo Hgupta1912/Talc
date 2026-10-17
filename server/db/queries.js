@@ -12,6 +12,27 @@ const createUser = async (data) =>
   prisma.user.create({ data });
 
 
+const findUserPasswordById = (id) =>
+  prisma.user.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      password: true,
+    },
+  });
+
+const updateUserPassword = (id, oldHash, newHash) =>
+  prisma.user.updateMany({
+    where: {
+      id,
+      password: oldHash,
+    },
+    data: {
+      password: newHash,
+    },
+  });
+
+
 // USER QUERIES
 
 const findUserById = (id) =>
@@ -269,6 +290,8 @@ module.exports = {
   findUserByEmail,
   findUserByUsername,
   createUser,
+  findUserPasswordById,
+  updateUserPassword,
   findUserById,
   findUserProfileByUsername,
   updateUser,
