@@ -3,9 +3,8 @@ export interface User {
 	name: string
 	username: string
 	avatar: string
-	location: string
-	bio: string
-	website: string
+	email?: string
+	createdAt?: string
 }
 
 export interface Artwork {
@@ -14,12 +13,11 @@ export interface Artwork {
 	title: string
 	image: string
 	medium: string
-	mediumLabel?: string
+	genre: string
 	description: string
 	feedbackOn: string
-	tags: string[]
-	dimensions?: string
 	createdAt: string
+	commentCount?: number
 }
 
 export interface Comment {
@@ -27,10 +25,7 @@ export interface Comment {
 	artworkId: string
 	authorId: string
 	body: string
-	tags: string[]
-	helpful: number
 	createdAt: string
-	edited?: boolean
 }
 
 export interface Toast {
@@ -38,28 +33,22 @@ export interface Toast {
 	message: string
 }
 
-export type NewArtwork = Pick<
-	Artwork,
-	'title' | 'description' | 'medium' | 'feedbackOn' | 'tags' | 'image'
->
-
-export interface CommentInput {
-	body: string
-	tags: string[]
+export interface NewArtwork {
+	file: File
+	title: string
+	description: string
+	medium: string
+	genre: string
+	feedbackOn: string
 }
 
 export interface SignupInput {
-	name: string
+	username: string
 	email: string
 	password: string
 }
 
-export interface CritiqueSummary {
-	id: string
-	artworkId: string
-	strengths: string[]
-	improvements: string[]
-	suggestions: string[]
-	commentCount: number
-	generatedAt: string
+export interface LoginInput {
+	email: string
+	password: string
 }

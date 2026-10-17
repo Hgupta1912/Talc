@@ -11,7 +11,7 @@ export default function Logo() {
 				/>
 			</svg>
 			<span className="font-display text-[19px] font-bold tracking-tight">
-				Talc
+				Curve
 			</span>
 		</Link>
 	)

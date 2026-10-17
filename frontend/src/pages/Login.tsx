@@ -2,7 +2,7 @@ import type { ChangeEvent, FormEvent } from 'react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Logo from '../components/Logo'
-import { useApp } from '../store/AppContext'
+import { useApp } from '../store/useApp'
 import type { SignupInput } from '../types/canvas'
 
 export default function Login({
@@ -14,23 +14,29 @@ export default function Login({
 	const { login, signup } = useApp()
 	const navigate = useNavigate()
 	const [form, setForm] = useState<SignupInput>({
-		name: '',
+		username: '',
 		email: '',
 		password: '',
 	})
+	const [submitting, setSubmitting] = useState(false)
 	const set = (k: keyof SignupInput) => (e: ChangeEvent<HTMLInputElement>) =>
 		setForm((f) => ({ ...f, [k]: e.target.value }))
+	const usernameOk = /^[a-zA-Z0-9_]{3,30}$/.test(form.username) && form.username !== 'me'
 	const valid =
 		form.email !== '' &&
 		form.password.length >= 6 &&
-		(!isSignup || form.name !== '')
+		(!isSignup || usernameOk) &&
+		!submitting
 
-	const submit = (e: FormEvent) => {
+	const submit = async (e: FormEvent) => {
 		e.preventDefault()
-		if (isSignup)
-			signup(form) // TODO: real auth
-		else login()
-		navigate('/')
+		if (!valid) return
+		setSubmitting(true)
+		const ok = isSignup
+			? await signup(form)
+			: await login({ email: form.email, password: form.password })
+		setSubmitting(false)
+		if (ok) navigate('/')
 	}
 
 	return (
@@ -38,7 +44,7 @@ export default function Login({
 			<Logo />
 			<div className="m-auto w-full max-w-[380px] py-12">
 				<h1 className="headline text-[2.25rem] leading-tight">
-					{isSignup ? 'Join Talc' : 'Welcome back'}
+					{isSignup ? 'Join Curve' : 'Welcome back'}
 				</h1>
 				<p className="mt-2 text-sm text-muted">
 					{isSignup
@@ -48,12 +54,20 @@ export default function Login({
 
 				<form onSubmit={submit} className="mt-8 space-y-4">
 					{isSignup && (
-						<input
-							className="field"
-							placeholder="Your name"
-							value={form.name}
-							onChange={set('name')}
-						/>
+						<div>
+							<input
+								className="field"
+								placeholder="Username"
+								autoComplete="username"
+								value={form.username}
+								onChange={set('username')}
+							/>
+							{form.username !== '' && !usernameOk && (
+								<p className="mt-1.5 text-xs text-danger">
+									3–30 letters, numbers or underscores.
+								</p>
+							)}
+						</div>
 					)}
 					<input
 						className="field"
@@ -65,6 +79,7 @@ export default function Login({
 					<input
 						className="field"
 						type="password"
+						autoComplete={isSignup ? 'new-password' : 'current-password'}
 						placeholder="Password"
 						value={form.password}
 						onChange={set('password')}
@@ -74,12 +89,18 @@ export default function Login({
 						disabled={!valid}
 						className="btn-primary w-full !py-3"
 					>
-						{isSignup ? 'Create account' : 'Log in'}
+						{submitting
+							? isSignup
+								? 'Creating account…'
+								: 'Logging in…'
+							: isSignup
+								? 'Create account'
+								: 'Log in'}
 					</button>
 				</form>
 
 				<p className="mt-6 text-center text-sm text-muted">
-					{isSignup ? 'Already have an account? ' : 'New to Talc? '}
+					{isSignup ? 'Already have an account? ' : 'New to Curve? '}
 					<Link
 						to={isSignup ? '/login' : '/signup'}
 						className="font-semibold text-accent hover:underline"

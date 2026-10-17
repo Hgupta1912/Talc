@@ -1,7 +1,7 @@
 import { ChevronRight, LogOut, Plus, Settings, User as UserIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useApp } from '../store/AppContext'
+import { useApp } from '../store/useApp'
 import Logo from './Logo'
 import { Avatar } from './ui'
 

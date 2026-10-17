@@ -1,35 +1,33 @@
 import { useEffect, useMemo, useState } from 'react'
 import { MasonryGrid, MasonrySkeleton } from '../components/ArtworkGrid'
 import { EmptyState, TagChip } from '../components/ui'
-import { MEDIUMS } from '../data/mock'
-import { useApp } from '../store/AppContext'
+import { MEDIUMS } from '../data/constants'
+import { useApp } from '../store/useApp'
 
 const FILTERS = ['For You', 'Recent', 'Most Discussed', ...MEDIUMS]
 
 export default function Discover() {
-	const { artworks, comments } = useApp()
+	const { artworks, feedLoading, loadFeed } = useApp()
 	const [filter, setFilter] = useState('For You')
-	const [loading, setLoading] = useState(true)
 
 	useEffect(() => {
-		const t = setTimeout(() => setLoading(false), 500) // fake loading delay
-		return () => clearTimeout(t)
+		loadFeed()
 	}, [])
 
 	const visible = useMemo(() => {
-		const count = (id: string) =>
-			comments.filter((c) => c.artworkId === id).length
 		if (filter === 'Recent')
 			return [...artworks].sort(
 				(a, b) =>
 					new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
 			)
 		if (filter === 'Most Discussed')
-			return [...artworks].sort((a, b) => count(b.id) - count(a.id))
+			return [...artworks].sort(
+				(a, b) => (b.commentCount ?? 0) - (a.commentCount ?? 0),
+			)
 		if (MEDIUMS.includes(filter))
 			return artworks.filter((a) => a.medium === filter)
-		return artworks // "For You": the recommendation algorithm goes here
-	}, [artworks, comments, filter])
+		return artworks
+	}, [artworks, filter])
 
 	return (
 		<div className="mx-auto max-w-[1120px] px-4 pb-20 pt-6 sm:px-6">
@@ -57,14 +55,22 @@ export default function Discover() {
 			</div>
 
 			<div className="mt-6">
-				{loading ? (
+				{feedLoading && artworks.length === 0 ? (
 					<MasonrySkeleton />
 				) : visible.length ? (
 					<MasonryGrid artworks={visible} />
 				) : (
 					<EmptyState
-						title={`No ${filter.toLowerCase()} work yet`}
-						body="Check back soon, or try another filter."
+						title={
+							artworks.length
+								? `No ${filter.toLowerCase()} work yet`
+								: 'Nothing here yet'
+						}
+						body={
+							artworks.length
+								? 'Try another filter.'
+								: 'Be the first to share a piece.'
+						}
 					/>
 				)}
 			</div>

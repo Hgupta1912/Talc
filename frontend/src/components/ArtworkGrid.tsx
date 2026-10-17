@@ -1,7 +1,7 @@
 import { MessageCircle, Pencil, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useApp } from '../store/AppContext'
+import { useApp } from '../store/useApp'
 import type { Artwork } from '../types/canvas'
 import { Avatar, ConfirmDialog, KebabMenu } from './ui'
 
@@ -11,11 +11,10 @@ interface ArtworkCardProps {
 }
 
 export function ArtworkCard({ artwork, manageable = false }: ArtworkCardProps) {
-	const { users, comments, deleteArtwork } = useApp()
+	const { users, deleteArtwork } = useApp()
 	const [confirming, setConfirming] = useState(false)
 	const navigate = useNavigate()
 	const artist = users[artwork.artistId]
-	const count = comments.filter((c) => c.artworkId === artwork.id).length
 
 	return (
 		<div className="group relative mb-3.5 break-inside-avoid">
@@ -38,9 +37,11 @@ export function ArtworkCard({ artwork, manageable = false }: ArtworkCardProps) {
 							<Avatar user={artist} size={18} />
 							<span className="truncate">{artist?.name}</span>
 						</span>
-						<span className="flex items-center gap-1">
-							<MessageCircle size={13} /> {count}
-						</span>
+						{artwork.commentCount !== undefined && (
+							<span className="flex items-center gap-1">
+								<MessageCircle size={13} /> {artwork.commentCount}
+							</span>
+						)}
 					</div>
 				</div>
 			</Link>
