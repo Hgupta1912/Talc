@@ -1,0 +1,61 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  email     String   @unique
+  passwordHash String
+  createdAt DateTime @default(now())
+
+  artworks  Artwork[]
+  comments  Comment[]
+}
+
+model Artwork {
+  id            String   @id @default(uuid())
+  imagePublicId String
+  title         String
+  description   String?
+  medium        String
+  genre         String
+  focus         String
+  imageUrl      String
+  createdAt     DateTime @default(now())
+
+  artistId      String
+  artist        User     @relation(fields: [artistId], references: [id])
+
+  comments      Comment[]
+  summary       CritiqueSummary?
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  createdAt DateTime @default(now())
+
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+
+  artworkId String
+  artwork   Artwork @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+}
+
+model CritiqueSummary {
+  id           String   @id @default(uuid())
+  strengths    String[]
+  improvements String[]
+  suggestions  String[]
+  commentCount Int      @default(0)
+  generatedAt  DateTime @default(now())
+
+  artworkId    String   @unique
+  artwork      Artwork  @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+}
