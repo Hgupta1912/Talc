@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { GENRES, MEDIUMS } from '../data/constants'
 import { useApp } from '../store/useApp'
 
-const MAX_MB = 10 // backend limit
+const MAX_MB = 10
 const ACCEPT = ['image/jpeg', 'image/png', 'image/webp']
 
 interface UploadForm {
@@ -81,7 +81,6 @@ export default function Upload() {
 		if (inputRef.current) inputRef.current.value = ''
 	}
 
-	// The backend requires an image, title, medium, genre and focus.
 	const canPublish = Boolean(
 		file &&
 			form.title.trim() &&

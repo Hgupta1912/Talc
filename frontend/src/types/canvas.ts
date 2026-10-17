@@ -17,7 +17,6 @@ export interface Artwork {
 	description: string
 	feedbackOn: string
 	createdAt: string
-	/** Undefined when the backend didn't include a count (e.g. profile responses). */
 	commentCount?: number
 }
 
@@ -34,7 +33,6 @@ export interface Toast {
 	message: string
 }
 
-/** What the upload form sends to createArtwork. */
 export interface NewArtwork {
 	file: File
 	title: string

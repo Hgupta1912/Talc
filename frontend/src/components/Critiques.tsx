@@ -7,7 +7,7 @@ import { timeAgo } from '../utils/time'
 import type { MenuItem } from './ui'
 import { Avatar, ConfirmDialog, EmptyState, KebabMenu } from './ui'
 
-const MAX = 2000 // backend limit
+const MAX = 2000
 type SortMode = 'oldest' | 'newest'
 
 interface CommentFormProps {
@@ -80,7 +80,6 @@ function CommentCard({
 	const ownsArtwork = currentUser?.id === artworkOwnerId
 	if (!author) return null
 
-	// Backend rules: only the commenter can edit; the commenter or the artist can delete.
 	const menu: MenuItem[] = []
 	if (isMine)
 		menu.push({ label: 'Edit', icon: Pencil, onClick: () => setEditing(true) })

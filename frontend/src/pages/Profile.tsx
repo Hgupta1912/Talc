@@ -15,7 +15,6 @@ function Stat({ value, label }: { value: string | number; label: string }) {
 	)
 }
 
-/** Handles both /profile (your own) and /u/:username (someone else's, read-only). */
 export default function Profile() {
 	const { username } = useParams<{ username: string }>()
 	const { currentUser, authLoading, artworks, loadProfile } = useApp()
@@ -24,7 +23,6 @@ export default function Profile() {
 		isMeRoute || (!!currentUser && currentUser.username === username)
 	const key = isMeRoute ? `me:${currentUser?.id ?? ''}` : `u:${username}`
 
-	// Which profile finished loading (null profile = not found).
 	const [loaded, setLoaded] = useState<{
 		key: string
 		profile: ProfileData | null
@@ -42,7 +40,6 @@ export default function Profile() {
 		return () => {
 			cancelled = true
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [key])
 
 	if (isMeRoute && !currentUser)
@@ -52,7 +49,6 @@ export default function Profile() {
 	if (status === 'missing') return <NotFound what="artist" />
 
 	const user = viewingSelf && currentUser ? currentUser : profile?.user
-	// Read from the shared list so deletes show up immediately.
 	const ids = new Set(profile?.artworks.map((a) => a.id))
 	const theirArt = artworks.filter((a) => ids.has(a.id))
 	const joined = user?.createdAt

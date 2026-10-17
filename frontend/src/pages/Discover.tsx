@@ -12,7 +12,6 @@ export default function Discover() {
 
 	useEffect(() => {
 		loadFeed()
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [])
 
 	const visible = useMemo(() => {
@@ -27,7 +26,7 @@ export default function Discover() {
 			)
 		if (MEDIUMS.includes(filter))
 			return artworks.filter((a) => a.medium === filter)
-		return artworks // "For You": the backend currently returns the newest 30
+		return artworks
 	}, [artworks, filter])
 
 	return (

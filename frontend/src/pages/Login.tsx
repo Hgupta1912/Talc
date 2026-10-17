@@ -44,7 +44,7 @@ export default function Login({
 			<Logo />
 			<div className="m-auto w-full max-w-[380px] py-12">
 				<h1 className="headline text-[2.25rem] leading-tight">
-					{isSignup ? 'Join Talc' : 'Welcome back'}
+					{isSignup ? 'Join Curve' : 'Welcome back'}
 				</h1>
 				<p className="mt-2 text-sm text-muted">
 					{isSignup
@@ -100,7 +100,7 @@ export default function Login({
 				</form>
 
 				<p className="mt-6 text-center text-sm text-muted">
-					{isSignup ? 'Already have an account? ' : 'New to Talc? '}
+					{isSignup ? 'Already have an account? ' : 'New to Curve? '}
 					<Link
 						to={isSignup ? '/login' : '/signup'}
 						className="font-semibold text-accent hover:underline"

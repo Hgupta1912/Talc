@@ -62,7 +62,6 @@ export default function ArtworkDetail() {
 	} = useApp()
 	const [expanded, setExpanded] = useState(false)
 	const [confirming, setConfirming] = useState(false)
-	// Which artwork id finished loading, and whether it was found.
 	const [loaded, setLoaded] = useState<{ id: string; found: boolean } | null>(
 		null,
 	)
@@ -78,7 +77,6 @@ export default function ArtworkDetail() {
 		return () => {
 			cancelled = true
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [id])
 
 	const art = artworks.find((a) => a.id === id)
