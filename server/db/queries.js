@@ -217,6 +217,52 @@ const deleteArtwork = async (id, artistId) => {
   return result.count;
 };
 
+// CRITIQUE SUMMARY QUERIES
+
+
+// GET ARTWORK AND COMMENTS FOR AI ANALYSIS
+const findArtworkForSummary = (artworkId) =>
+  prisma.artwork.findUnique({
+    where: { id: artworkId },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      medium: true,
+      genre: true,
+      focus: true,
+      artistId: true,
+      comments: {
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+        select: {
+          content: true,
+        },
+      },
+    },
+  });
+
+// GET SAVED SUMMARY
+const findCritiqueSummary = (artworkId) =>
+  prisma.critiqueSummary.findUnique({
+    where: { artworkId },
+  });
+
+// CREATE OR REPLACE SUMMARY
+const upsertCritiqueSummary = (artworkId, summary, commentCount) =>
+  prisma.critiqueSummary.upsert({
+    where: { artworkId },
+    create: {
+      artworkId,
+      ...summary,
+      commentCount,
+    },
+    update: {
+      ...summary,
+      commentCount,
+      generatedAt: new Date(),
+    },
+  });
 
 
 module.exports = {
@@ -237,4 +283,7 @@ module.exports = {
   createArtwork,
   updateArtwork,
   deleteArtwork,
+  findArtworkForSummary,
+  findCritiqueSummary,
+  upsertCritiqueSummary,
 };
