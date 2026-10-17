@@ -10,7 +10,7 @@ import NotFound from './pages/NotFound'
 import Profile from './pages/Profile'
 import Settings from './pages/Settings'
 import Upload from './pages/Upload'
-import { useApp } from './store/AppContext'
+import { useApp } from './store/useApp'
 
 function Layout() {
   const { pathname } = useLocation()
@@ -19,9 +19,9 @@ function Layout() {
 }
 
 function RequireLogin({ children }: { children: ReactNode }) {
-	const { currentUser } = useApp()
-	if (!currentUser) return <Navigate to="/login" replace />
-	return <>{children}</>
+	const { currentUser, authLoading } = useApp()
+	if (!currentUser) return authLoading ? null : <Navigate to="/login" replace />
+  return <>{children}</>
 }
 
 export default function App() {

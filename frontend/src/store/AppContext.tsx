@@ -1,200 +1,367 @@
 import type { ReactNode } from 'react'
-import {
-	createContext,
-	useCallback,
-	useContext,
-	useMemo,
-	useState,
-} from 'react'
-import * as mock from '../data/mock'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { ApiError, api } from '../api/client'
+import { toArtwork, toComment, toUser } from '../api/mappers'
+import type {
+	ApiArtwork,
+	ApiAuthResponse,
+	ApiComment,
+	ApiProfile,
+	ApiUser,
+	ApiUserRef,
+} from '../types/api'
 import type {
 	Artwork,
 	Comment,
-	CommentInput,
-	CritiqueSummary,
+	LoginInput,
 	NewArtwork,
 	SignupInput,
 	Toast,
 	User,
 } from '../types/canvas'
-import { avatarUrl } from '../utils/avatar'
+import type { AppState } from './context'
+import { AppContext } from './context'
 
-interface AppState {
-	users: Record<string, User>
-	currentUser: User | null
-	artworks: Artwork[]
-	comments: Comment[]
-	summaries: CritiqueSummary[]
-	helpfulVotes: Set<string>
-	toasts: Toast[]
-	login: (userId?: string) => void
-	signup: (input: SignupInput) => void
-	logout: () => void
-	updateProfile: (patch: Partial<User>) => void
-	createArtwork: (data: NewArtwork) => Artwork
-	deleteArtwork: (artworkId: string) => void
-	addComment: (artworkId: string, input: CommentInput) => void
-	editComment: (commentId: string, input: CommentInput) => void
-	deleteComment: (commentId: string) => void
-	toggleHelpful: (commentId: string) => void
-	toast: (message: string) => void
+const PERSIST_TOKEN = true
+const TOKEN_KEY = 'curve.token'
+
+const readToken = () => {
+	if (!PERSIST_TOKEN) return null
+	try {
+		return localStorage.getItem(TOKEN_KEY)
+	} catch {
+		return null
+	}
+}
+const writeToken = (token: string | null) => {
+	if (!PERSIST_TOKEN) return
+	try {
+		if (token) localStorage.setItem(TOKEN_KEY, token)
+		else localStorage.removeItem(TOKEN_KEY)
+	} catch {
+	}
 }
 
-const AppContext = createContext<AppState | null>(null)
-
-let idCounter = 100
-const newId = (prefix: string) => `${prefix}${++idCounter}`
+let toastCounter = 0
 
 export function AppProvider({ children }: { children: ReactNode }) {
-	const [users, setUsers] = useState<Record<string, User>>(mock.users)
-	const [currentUserId, setCurrentUserId] = useState<string | null>(
-		mock.CURRENT_USER_ID,
-	)
-	const [artworks, setArtworks] = useState<Artwork[]>(mock.artworks)
-	const [comments, setComments] = useState<Comment[]>(mock.comments)
-	const [summaries] = useState<CritiqueSummary[]>(mock.critiqueSummaries)
-	const [helpfulVotes, setHelpfulVotes] = useState<Set<string>>(() => new Set())
+	const [token, setToken] = useState<string | null>(readToken)
+	const [currentUser, setCurrentUser] = useState<User | null>(null)
+	const [authLoading, setAuthLoading] = useState(() => Boolean(readToken()))
+	const [users, setUsers] = useState<Record<string, User>>({})
+	const [artworks, setArtworks] = useState<Artwork[]>([])
+	const [feedLoading, setFeedLoading] = useState(true)
+	const [comments, setComments] = useState<Comment[]>([])
 	const [toasts, setToasts] = useState<Toast[]>([])
 
-	const currentUser = currentUserId ? (users[currentUserId] ?? null) : null
-
 	const toast = useCallback((message: string) => {
-		const id = newId('t')
+		const id = `t${++toastCounter}`
 		setToasts((t) => [...t, { id, message }])
-		setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 2800)
+		setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3200)
 	}, [])
 
-	const value = useMemo<AppState>(() => {
-		// ---------- auth (fake for now) ----------
-		const login = (userId: string = mock.CURRENT_USER_ID) =>
-			setCurrentUserId(userId)
-		const signup = ({ name, email }: SignupInput) => {
-			const id = newId('u')
-			const username = (email.split('@')[0] || name)
-				.toLowerCase()
-				.replace(/[^a-z0-9]/g, '')
-			setUsers((u) => ({
-				...u,
-				[id]: {
-					id,
-					name,
-					username,
-					avatar: avatarUrl(username),
-					location: '',
-					bio: '',
-					website: '',
-				},
-			}))
-			setCurrentUserId(id)
+	const rememberUsers = useCallback((refs: (ApiUserRef | ApiUser)[]) => {
+		setUsers((prev) => {
+			const next = { ...prev }
+			for (const r of refs) next[r.id] = { ...next[r.id], ...toUser(r) }
+			return next
+		})
+	}, [])
+
+	const upsertArtworks = useCallback((incoming: Artwork[]) => {
+		setArtworks((prev) => {
+			const byId = new Map(prev.map((a) => [a.id, a]))
+			for (const a of incoming) {
+				const old = byId.get(a.id)
+				byId.set(a.id, {
+					...old,
+					...a,
+					commentCount: a.commentCount ?? old?.commentCount,
+				})
+			}
+			return [...byId.values()].sort(
+				(x, y) =>
+					new Date(y.createdAt).getTime() - new Date(x.createdAt).getTime(),
+			)
+		})
+	}, [])
+
+	const bumpCommentCount = useCallback((artworkId: string, delta: number) => {
+		setArtworks((prev) =>
+			prev.map((a) =>
+				a.id === artworkId && a.commentCount !== undefined
+					? { ...a, commentCount: Math.max(0, a.commentCount + delta) }
+					: a,
+			),
+		)
+	}, [])
+
+	const startSession = useCallback(
+		({ token, user }: ApiAuthResponse) => {
+			setToken(token)
+			writeToken(token)
+			const u = toUser(user)
+			setCurrentUser(u)
+			rememberUsers([user])
+		},
+		[rememberUsers],
+	)
+
+	const endSession = useCallback(() => {
+		setToken(null)
+		writeToken(null)
+		setCurrentUser(null)
+	}, [])
+
+	const attempt = useCallback(
+		async <T,>(
+			fn: () => Promise<T>,
+		): Promise<{ ok: true; data: T } | { ok: false }> => {
+			try {
+				return { ok: true, data: await fn() }
+			} catch (err) {
+				const e = err as ApiError
+				if (
+					token &&
+					(e.status === 401 ||
+						(e.status === 403 && /token/i.test(e.message)))
+				) {
+					endSession()
+					toast('Your session expired — please log in again.')
+				} else {
+					toast(e.message || 'Something went wrong')
+				}
+				return { ok: false }
+			}
+		},
+		[token, endSession, toast],
+	)
+
+	useEffect(() => {
+		const saved = readToken()
+		if (!saved) return
+		let cancelled = false
+		api<ApiProfile>('/users/me', { token: saved })
+			.then((me) => {
+				if (cancelled) return
+				setCurrentUser(toUser(me))
+				rememberUsers([me])
+			})
+			.catch(() => {
+				if (!cancelled) endSession()
+			})
+			.finally(() => {
+				if (!cancelled) setAuthLoading(false)
+			})
+		return () => {
+			cancelled = true
 		}
-		const logout = () => setCurrentUserId(null)
-		const updateProfile = (patch: Partial<User>) => {
-			if (!currentUserId) return
-			setUsers((u) => ({
-				...u,
-				[currentUserId]: { ...u[currentUserId], ...patch },
-			}))
-			toast('Profile updated')
+	}, [rememberUsers, endSession])
+
+	const value = useMemo<AppState>(() => {
+		const login = async (input: LoginInput) => {
+			const res = await attempt(() =>
+				api<ApiAuthResponse>('/auth/login', { method: 'POST', body: input }),
+			)
+			if (res.ok) startSession(res.data)
+			return res.ok
 		}
 
-		const createArtwork = (data: NewArtwork): Artwork => {
-			const art: Artwork = {
-				id: newId('a'),
-				artistId: currentUserId ?? '',
-				createdAt: new Date().toISOString(),
-				mediumLabel: data.medium,
-				...data,
+		const signup = async (input: SignupInput) => {
+			const res = await attempt(() =>
+				api<ApiAuthResponse>('/auth/signup', { method: 'POST', body: input }),
+			)
+			if (res.ok) startSession(res.data)
+			return res.ok
+		}
+
+		const logout = () => endSession()
+
+		const updateUsername = async (username: string) => {
+			const res = await attempt(() =>
+				api<ApiUser>('/users/me', {
+					method: 'PATCH',
+					token,
+					body: { username },
+				}),
+			)
+			if (!res.ok) return false
+			setCurrentUser(toUser(res.data))
+			rememberUsers([res.data])
+			toast('Profile updated')
+			return true
+		}
+
+		const loadFeed = async () => {
+			setFeedLoading(true)
+			const res = await attempt(() => api<ApiArtwork[]>('/artworks'))
+			if (res.ok) {
+				const list = res.data
+				rememberUsers(list.flatMap((a) => (a.artist ? [a.artist] : [])))
+				upsertArtworks(list.map(toArtwork))
 			}
-			setArtworks((a) => [art, ...a])
+			setFeedLoading(false)
+		}
+
+		const loadArtwork = async (id: string) => {
+			try {
+				const a = await api<ApiArtwork>(`/artworks/${id}`)
+				if (a.artist) rememberUsers([a.artist])
+				const art = toArtwork(a)
+				upsertArtworks([art])
+				return art
+			} catch (err) {
+				if ((err as ApiError).status !== 404) toast((err as Error).message)
+				return null
+			}
+		}
+
+		const loadProfile = async (username: string | 'me') => {
+			try {
+				const raw =
+					username === 'me'
+						? await api<ApiProfile>('/users/me', { token })
+						: await api<ApiProfile | { user: ApiProfile }>(
+								`/users/${encodeURIComponent(username)}`,
+							)
+				const p: ApiProfile = 'user' in raw ? raw.user : raw
+				rememberUsers([p])
+				const art = p.artworks.map((a) => toArtwork({ ...a, artistId: p.id }))
+				upsertArtworks(art)
+				return { user: toUser(p), artworks: art }
+			} catch (err) {
+				if ((err as ApiError).status !== 404) toast((err as Error).message)
+				return null
+			}
+		}
+
+		const createArtwork = async (data: NewArtwork) => {
+			const form = new FormData()
+			form.append('image', data.file)
+			form.append('title', data.title)
+			form.append('description', data.description)
+			form.append('medium', data.medium)
+			form.append('genre', data.genre)
+			form.append('focus', data.feedbackOn)
+			const res = await attempt(() =>
+				api<ApiArtwork>('/artworks', { method: 'POST', token, body: form }),
+			)
+			if (!res.ok) return null
+			if (res.data.artist) rememberUsers([res.data.artist])
+			const art = toArtwork(res.data)
+			upsertArtworks([art])
 			toast('Artwork published')
 			return art
 		}
-		const deleteArtwork = (artworkId: string) => {
+
+		const deleteArtwork = async (artworkId: string) => {
+			const res = await attempt(() =>
+				api<null>(`/artworks/${artworkId}`, { method: 'DELETE', token }),
+			)
+			if (!res.ok) return false
 			setArtworks((a) => a.filter((x) => x.id !== artworkId))
-			setComments((c) => c.filter((x) => x.artworkId !== artworkId)) // also delete its comments
+			setComments((c) => c.filter((x) => x.artworkId !== artworkId))
 			toast('Artwork deleted')
+			return true
 		}
 
-		const addComment = (artworkId: string, { body, tags }: CommentInput) => {
-			if (!currentUserId) return
-			const comment: Comment = {
-				id: newId('c'),
-				artworkId,
-				authorId: currentUserId,
-				body,
-				tags,
-				helpful: 0,
-				createdAt: new Date().toISOString(),
+		const loadComments = async (artworkId: string) => {
+			try {
+				const list = await api<ApiComment[]>(`/artworks/${artworkId}/comments`)
+				rememberUsers(list.map((c) => c.author))
+				setComments((prev) => [
+					...prev.filter((c) => c.artworkId !== artworkId),
+					...list.map(toComment),
+				])
+			} catch (err) {
+				if ((err as ApiError).status !== 404) toast((err as Error).message)
 			}
-			setComments((c) => [comment, ...c])
+		}
+
+		const addComment = async (artworkId: string, body: string) => {
+			const res = await attempt(() =>
+				api<ApiComment>(`/artworks/${artworkId}/comments`, {
+					method: 'POST',
+					token,
+					body: { content: body },
+				}),
+			)
+			if (!res.ok) return false
+			rememberUsers([res.data.author])
+			setComments((c) => [...c, toComment(res.data)])
+			bumpCommentCount(artworkId, 1)
 			toast('Critique posted')
+			return true
 		}
-		const editComment = (commentId: string, { body, tags }: CommentInput) => {
-			setComments((c) =>
-				c.map((x) =>
-					x.id === commentId ? { ...x, body, tags, edited: true } : x,
+
+		const editComment = async (comment: Comment, body: string) => {
+			const res = await attempt(() =>
+				api<ApiComment>(
+					`/artworks/${comment.artworkId}/comments/${comment.id}`,
+					{ method: 'PATCH', token, body: { content: body } },
 				),
 			)
+			if (!res.ok) return false
+			const updated = toComment(res.data)
+			setComments((c) => c.map((x) => (x.id === comment.id ? updated : x)))
 			toast('Comment updated')
+			return true
 		}
-		const deleteComment = (commentId: string) => {
-			setComments((c) => c.filter((x) => x.id !== commentId))
-			toast('Comment deleted')
-		}
-		const toggleHelpful = (commentId: string) => {
-			const voted = helpfulVotes.has(commentId)
-			setHelpfulVotes((s) => {
-				const next = new Set(s)
-				if (voted) next.delete(commentId)
-				else next.add(commentId)
-				return next
-			})
-			setComments((c) =>
-				c.map((x) =>
-					x.id === commentId
-						? { ...x, helpful: x.helpful + (voted ? -1 : 1) }
-						: x,
-				),
+
+		const deleteComment = async (comment: Comment) => {
+			const res = await attempt(() =>
+				api<null>(`/artworks/${comment.artworkId}/comments/${comment.id}`, {
+					method: 'DELETE',
+					token,
+				}),
 			)
+			if (!res.ok) return false
+			setComments((c) => c.filter((x) => x.id !== comment.id))
+			bumpCommentCount(comment.artworkId, -1)
+			toast('Comment deleted')
+			return true
 		}
 
 		return {
 			users,
 			currentUser,
+			authLoading,
 			artworks,
+			feedLoading,
 			comments,
-			summaries,
-			helpfulVotes,
 			toasts,
 			login,
 			signup,
 			logout,
-			updateProfile,
+			updateUsername,
+			loadFeed,
+			loadArtwork,
+			loadProfile,
 			createArtwork,
 			deleteArtwork,
+			loadComments,
 			addComment,
 			editComment,
 			deleteComment,
-			toggleHelpful,
 			toast,
 		}
 	}, [
 		users,
 		currentUser,
-		currentUserId,
+		authLoading,
 		artworks,
+		feedLoading,
 		comments,
-		summaries,
-		helpfulVotes,
 		toasts,
+		token,
+		attempt,
+		startSession,
+		endSession,
+		rememberUsers,
+		upsertArtworks,
+		bumpCommentCount,
 		toast,
 	])
 
 	return <AppContext.Provider value={value}>{children}</AppContext.Provider>
-}
-
-export function useApp(): AppState {
-	const ctx = useContext(AppContext)
-	if (!ctx) throw new Error('useApp must be used inside <AppProvider>')
-	return ctx
 }
