@@ -1,38 +1,43 @@
-# Logs
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-# Editor directories and files
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
 # Dependencies
 node_modules
 
 # Build output
 dist
 dist-ssr
+*.tsbuildinfo
+
+# Caches
+.vite
+.eslintcache
+coverage
+
+# Prisma generated client (backend schema outputs to ../generated/prisma)
+generated/
 
 # Environment variables (never commit secrets)
 .env
-.env.local
-.env.*.local
+.env.*
 !.env.example
 
 # Logs
 logs
 *.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# Editor / OS
+# Editor
 .vscode/*
 !.vscode/extensions.json
 .idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS
 .DS_Store
 Thumbs.db
-*.local
