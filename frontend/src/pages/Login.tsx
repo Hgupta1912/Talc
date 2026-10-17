@@ -19,13 +19,15 @@ export default function Login({
 		password: '',
 	})
 	const [submitting, setSubmitting] = useState(false)
+	const [confirm, setConfirm] = useState('')
+	const passwordsMatch = confirm === form.password
 	const set = (k: keyof SignupInput) => (e: ChangeEvent<HTMLInputElement>) =>
 		setForm((f) => ({ ...f, [k]: e.target.value }))
 	const usernameOk = /^[a-zA-Z0-9_]{3,30}$/.test(form.username) && form.username !== 'me'
 	const valid =
 		form.email !== '' &&
 		form.password.length >= 6 &&
-		(!isSignup || usernameOk) &&
+		(!isSignup || (usernameOk && passwordsMatch)) &&
 		!submitting
 
 	const submit = async (e: FormEvent) => {
@@ -84,6 +86,23 @@ export default function Login({
 						value={form.password}
 						onChange={set('password')}
 					/>
+					{isSignup && (
+						<div>
+							<input
+								className="field"
+								type="password"
+								autoComplete="new-password"
+								placeholder="Confirm password"
+								value={confirm}
+								onChange={(e) => setConfirm(e.target.value)}
+							/>
+							{confirm !== '' && !passwordsMatch && (
+								<p className="mt-1.5 text-xs text-danger">
+									Passwords don't match.
+								</p>
+							)}
+						</div>
+					)}
 					<button
 						type="submit"
 						disabled={!valid}
