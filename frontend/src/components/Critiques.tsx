@@ -8,6 +8,7 @@ import type { MenuItem } from './ui'
 import { Avatar, ConfirmDialog, EmptyState, KebabMenu } from './ui'
 
 const MAX = 2000
+const MAX_COMMENTS = 50
 type SortMode = 'oldest' | 'newest'
 
 interface CommentFormProps {
@@ -167,7 +168,8 @@ export default function Critiques({
 			return sort === 'oldest' ? diff : -diff
 		})
 	}, [comments, artworkId, sort])
-
+	const full = list.length >= MAX_COMMENTS
+	
 	return (
 		<section className="mt-16 max-w-[760px]">
 			<div className="flex items-end justify-between gap-4">
@@ -176,7 +178,7 @@ export default function Critiques({
 					<h2 className="mt-2 font-display text-3xl font-bold tracking-tight">
 						Critiques{' '}
 						<span className="text-lg font-semibold text-faint">
-							{list.length}
+							{list.length}/{MAX_COMMENTS}
 						</span>
 					</h2>
 				</div>
@@ -200,17 +202,7 @@ export default function Critiques({
 			</div>
 
 			<div className="mt-6 rounded-3xl border border-blush-deep bg-cream p-5">
-				{currentUser ? (
-					<div className="flex gap-3">
-						<Avatar user={currentUser} size={34} />
-						<div className="flex-1">
-							<CommentForm
-								submitLabel="Post critique"
-								onSubmit={(body) => addComment(artworkId, body)}
-							/>
-						</div>
-					</div>
-				) : (
+				{!currentUser ? (
 					<p className="text-sm text-muted">
 						<Link
 							to="/login"
@@ -220,6 +212,21 @@ export default function Critiques({
 						</Link>{' '}
 						to leave a critique.
 					</p>
+				) : full ? (
+					<p className="text-sm text-muted">
+						This piece has reached the {MAX_COMMENTS}-critique limit, so
+						new critiques are closed.
+					</p>
+				) : (
+					<div className="flex gap-3">
+						<Avatar user={currentUser} size={34} />
+						<div className="flex-1">
+							<CommentForm
+								submitLabel="Post critique"
+								onSubmit={(body) => addComment(artworkId, body)}
+							/>
+						</div>
+					</div>
 				)}
 			</div>
 
