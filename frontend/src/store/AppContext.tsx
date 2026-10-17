@@ -23,7 +23,7 @@ import type { AppState } from './context'
 import { AppContext } from './context'
 
 const PERSIST_TOKEN = true
-const TOKEN_KEY = 'talc.token'
+const TOKEN_KEY = 'curve.token'
 
 const readToken = () => {
 	if (!PERSIST_TOKEN) return null

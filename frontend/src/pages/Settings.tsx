@@ -52,7 +52,7 @@ export default function Settings() {
 							Username
 						</span>
 						<span className="flex items-center rounded-xl border border-blush-deep bg-cream focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/15">
-							<span className="pl-3.5 pr-4 text-xs text-muted">talc.art/</span>
+							<span className="pl-3.5 pr-4 text-xs text-muted">curve.art/</span>
 							<input
 								className="w-full bg-transparent py-2.5 pr-3.5 text-sm outline-none"
 								value={username}
