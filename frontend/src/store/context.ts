@@ -17,6 +17,7 @@ export interface Profile {
 export interface AppState {
 	users: Record<string, User>
 	currentUser: User | null
+    token: string | null
 	authLoading: boolean
 	artworks: Artwork[]
 	feedLoading: boolean

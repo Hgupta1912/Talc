@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { MasonryGrid } from '../components/ArtworkGrid'
 import Critiques from '../components/Critiques'
+import CritiqueSummary from '../components/CritiqueSummary'
 import type { MenuItem } from '../components/ui'
 import { Avatar, ConfirmDialog, KebabMenu, TagChip } from '../components/ui'
 import { useApp } from '../store/useApp'
@@ -55,6 +56,7 @@ export default function ArtworkDetail() {
 		artworks,
 		users,
 		currentUser,
+		comments,
 		deleteArtwork,
 		loadArtwork,
 		loadComments,
@@ -99,6 +101,7 @@ export default function ArtworkDetail() {
 	}
 
 	const isOwner = currentUser?.id === art.artistId
+	const commentCount = comments.filter((c) => c.artworkId === art.id).length
 	const related = artworks
 		.filter(
 			(a) =>
@@ -216,8 +219,12 @@ export default function ArtworkDetail() {
 				</aside>
 			</div>
 
-			<Critiques artworkId={art.id} artworkOwnerId={art.artistId} />
+			{isOwner && status === 'ready' && (
+				<CritiqueSummary artworkId={art.id} commentCount={commentCount} />
+			)}
 
+			<Critiques artworkId={art.id} artworkOwnerId={art.artistId} />
+			
 			{related.length > 0 && (
 				<section className="mt-20">
 					<h2 className="mb-6 font-display text-2xl font-bold tracking-tight">
