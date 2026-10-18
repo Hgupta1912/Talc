@@ -29,14 +29,6 @@ Curve puts **constructive feedback** at the center:
 2. Log in as a second user, find the piece in the feed, and leave a critique.
 3. Back as the artist, open the piece and click **Generate summary**.
 
-## Screenshots
-
-<!-- TODO: add screenshots or a demo GIF -->
-
-| Discover feed | Artwork + critiques | AI critique summary |
-| :---: | :---: | :---: |
-| _screenshot_ | _screenshot_ | _screenshot_ |
-
 ## Features
 
 | | Feature | Details |
