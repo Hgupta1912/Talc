@@ -4,7 +4,7 @@
 
 **A critique-first art platform. Artists share work, get real feedback, and use AI to see what it all adds up to.**
 
-TechnicaHacka 2026 · [Live demo](#) <!-- TODO: add link --> · [Frontend docs](frontend/README.md)
+TechnicaHacka 2026 · [Live demo](#) talc-kbgh9y7l8-angelaliuusa-5592s-projects.vercel.app · [Frontend docs](frontend/README.md)
 
 </div>
 
