@@ -13,6 +13,7 @@ model User {
   email     String   @unique
   password  String
   createdAt DateTime @default(now())
+  mediumEngagement Json @default("{}")
 
   artworks  Artwork[]
   comments  Comment[]

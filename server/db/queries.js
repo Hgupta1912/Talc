@@ -35,6 +35,19 @@ const updateUserPassword = (id, oldHash, newHash) =>
 
 // USER QUERIES
 
+
+const findUserMediumEngagement = (userId) =>
+  prisma.user.findUnique({
+    where: { id: userId },
+    select: { mediumEngagement: true },
+  });
+
+const updateUserMediumEngagement = (userId, engagement) =>
+  prisma.user.update({
+    where: { id: userId },
+    data: { mediumEngagement: engagement },
+  });
+
 const findUserById = (id) =>
   prisma.user.findUnique({
     where: { id },
@@ -190,7 +203,7 @@ const artworkSelect = {
 const findAllArtworks = () =>
   prisma.artwork.findMany({
     orderBy: { createdAt: 'desc' },
-    take: 30,
+    take: 40,
     select: artworkSelect,
   });
 
@@ -290,6 +303,8 @@ module.exports = {
   findUserByEmail,
   findUserByUsername,
   createUser,
+  findUserMediumEngagement,
+  updateUserMediumEngagement,
   findUserPasswordById,
   updateUserPassword,
   findUserById,

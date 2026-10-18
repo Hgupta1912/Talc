@@ -1,4 +1,3 @@
-
 const {
   findArtworkForComments,
   findCommentsByArtwork,
@@ -6,7 +5,13 @@ const {
   createComment,
   updateComment,
   deleteComment,
+  findUserMediumEngagement,
+  updateUserMediumEngagement,
 } = require('../db/queries.js');
+
+const {
+  rewardRecommendation,
+} = require('../lib/recommender.js');
 
 const validContent = (content) =>
   typeof content === 'string' &&
@@ -31,31 +36,65 @@ const getAll = async (req, res, next) => {
 };
 
 // CREATE COMMENT
+
 const create = async (req, res, next) => {
   try {
     const { artworkId } = req.params;
     const { content } = req.body;
+    const userId = req.user.userId;
 
     if (!validContent(content)) {
-      return res.status(400).json({ error: 'Invalid comment content' });
+      return res.status(400).json({
+        error: 'Invalid comment content',
+      });
     }
 
     const artwork = await findArtworkForComments(artworkId);
+
     if (!artwork) {
-      return res.status(404).json({ error: 'Artwork not found' });
+      return res.status(404).json({
+        error: 'Artwork not found',
+      });
     }
 
+    // Create the comment
     const comment = await createComment(
       artworkId,
-      req.user.userId,
+      userId,
       content.trim()
     );
 
-    res.status(201).json(comment);
+    // Reward the medium if this artwork was recommended
+    try {
+      const user = await findUserMediumEngagement(userId);
+
+      if (user) {
+        const engagement = user.mediumEngagement || {};
+
+        const updatedEngagement = rewardRecommendation(
+          engagement,
+          artworkId
+        );
+
+        if (updatedEngagement) {
+          await updateUserMediumEngagement(
+            userId,
+            updatedEngagement
+          );
+        }
+      }
+    } catch (error) {
+      // Comment creation should still succeed if tracking fails
+      console.error('Engagement tracking failed:', error);
+    }
+
+    return res.status(201).json(comment);
+
   } catch (err) {
     next(err);
   }
 };
+
 
 // UPDATE COMMENT
 const update = async (req, res, next) => {

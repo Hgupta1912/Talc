@@ -4,7 +4,14 @@ const {
   createArtwork,
   updateArtwork,
   deleteArtwork,
+  findUserMediumEngagement,
+  updateUserMediumEngagement,
 } = require('../db/queries.js');
+
+const {
+  recommendArtworks,
+  recordRecommendations,
+} = require('../lib/recommender.js');
 
 const {
   cloudinary,
@@ -22,14 +29,61 @@ const validString = (value) =>
   typeof value === 'string' && value.trim().length > 0;
 
 // GET ALL ARTWORKS
+
 const getAll = async (req, res, next) => {
   try {
     const artworks = await findAllArtworks();
-    res.status(200).json(artworks);
+
+    // Anonymous users get a regular feed
+    if (!req.user || artworks.length === 0) {
+      return res.status(200).json(artworks.slice(0, 10));
+    }
+
+    const userId = req.user.userId;
+    const user = await findUserMediumEngagement(userId);
+
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    const engagement = user.mediumEngagement || {};
+
+    // Recommend other artists' work
+    const candidates = artworks.filter(
+      artwork => artwork.artistId !== userId
+    );
+
+    const recommended = recommendArtworks(
+      candidates,
+      engagement,
+      10
+    );
+
+    // Record the new batch, replacing the previous batch
+    const updatedEngagement = recordRecommendations(
+      engagement,
+      recommended
+    );
+
+    await updateUserMediumEngagement(
+      userId,
+      updatedEngagement
+    );
+
+    // Fill any remaining slots with ordinary artworks
+    const recommendedIds = new Set(recommended.map(a => a.id));
+
+    const feed = [
+      ...recommended,
+      ...artworks.filter(a => !recommendedIds.has(a.id)),
+    ].slice(0, 10);
+
+    return res.status(200).json(feed);
   } catch (err) {
     next(err);
   }
 };
+
 
 // GET ONE ARTWORK
 const getOne = async (req, res, next) => {
