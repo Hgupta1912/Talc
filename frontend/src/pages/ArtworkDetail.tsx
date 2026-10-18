@@ -43,7 +43,7 @@ function Lightbox({
 			<img
 				src={src}
 				alt={alt}
-				className="max-h-full max-w-full rounded-xl object-contain"
+				className="h-auto max-h-[90vh] w-auto max-w-[90vw] rounded-xl object-contain"
 			/>
 		</div>
 	)
@@ -145,12 +145,12 @@ export default function ArtworkDetail() {
 			<div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-10">
 				<button
 					onClick={() => setExpanded(true)}
-					className="group relative block overflow-hidden rounded-3xl bg-blush-deep"
+					className="group relative flex items-center justify-center self-start overflow-hidden rounded-3xl bg-blush-deep"
 				>
 					<img
 						src={art.image}
 						alt={art.title}
-						className="block max-h-[78vh] w-full object-cover"
+						className="block h-auto max-h-[78vh] w-auto max-w-full"
 					/>
 					<span className="absolute bottom-5 left-1/2 -translate-x-1/2 rounded-full bg-ink/75 px-3 py-1.5 text-xs font-medium text-white">
 						Click to expand
