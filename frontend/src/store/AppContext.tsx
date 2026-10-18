@@ -198,7 +198,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 			if (res.ok) {
 				const list = res.data
 				rememberUsers(list.flatMap((a) => (a.artist ? [a.artist] : [])))
-				upsertArtworks(list.map(toArtwork))
+				setArtworks(list.map(toArtwork))
 			}
 			setFeedLoading(false)
 		}
@@ -363,6 +363,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 		bumpCommentCount,
 		toast,
 	])
-	
+
 	return <AppContext.Provider value={value}>{children}</AppContext.Provider>
 }
