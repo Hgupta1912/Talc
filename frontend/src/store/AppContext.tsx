@@ -325,6 +325,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 		return {
 			users,
 			currentUser,
+			token,
 			authLoading,
 			artworks,
 			feedLoading,
@@ -362,6 +363,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 		bumpCommentCount,
 		toast,
 	])
-
+	
 	return <AppContext.Provider value={value}>{children}</AppContext.Provider>
 }

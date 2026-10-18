@@ -39,3 +39,13 @@ export interface ApiAuthResponse {
 	token: string
 	user: ApiUser
 }
+
+export interface ApiCritiqueSummary {
+	id: string
+	artworkId: string
+	strengths: string[]
+	improvements: string[]
+	suggestions: string[]
+	commentCount: number
+	generatedAt: string
+}

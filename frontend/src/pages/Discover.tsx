@@ -34,7 +34,7 @@ export default function Discover() {
 			<div>
 				<p className="eyebrow">Discover</p>
 				<h1 className="headline mt-3 text-[clamp(2.25rem,5vw,3rem)] leading-[1.05]">
-					Art worth talking about.
+					A Learning Platform for Artists.
 				</h1>
 				<p className="mt-3 text-[15px] text-muted">
 					Explore new work and help artists see it differently.
