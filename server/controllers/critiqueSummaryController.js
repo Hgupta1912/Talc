@@ -6,7 +6,7 @@ const {
 
 const {
   generateCritiqueSummary,
-} = require('../config/gemini.js');
+} = require('../lib/gemini.js');
 
 // GET EXISTING SUMMARY
 const getOne = async (req, res, next) => {

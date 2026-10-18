@@ -16,7 +16,7 @@ const {
 const {
   cloudinary,
   uploadImageBuffer,
-} = require('../config/cloudinary.js');
+} = require('../lib/cloudinary.js');
 
 const requiredFields = [
   'title',
