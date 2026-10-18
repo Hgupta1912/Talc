@@ -1,325 +1,342 @@
-# __________
+<div align="center">
 
-**An art-sharing and critique platform that helps artists receive useful feedback.**
+# Curve
 
-A mobile-first web app inspired by Pinterest and TikTok: artists share work, viewers discover new artwork and leave critiques, and artists can use Gemini AI to turn scattered comments into a concise, actionable feedback summary.
+**A critique-first art platform. Artists share work, get real feedback, and use AI to see what it all adds up to.**
 
-**Hackathon:** TechnicaHacka 2026  
-**Team:** Hans Gupta (backend) · Angela Liu (frontend)  
-**Demo:** __________  
+TechnicaHacka 2026 · [Live demo](#) <!-- TODO: add link --> · [Frontend docs](frontend/README.md)
 
-## Screenshots / Demo
+</div>
 
-<!-- Add screenshots, a demo GIF, or a short video once the frontend is ready. -->
+---
 
-| Feed | Artwork detail + comments | AI critique summary |
+## Why Curve?
+
+Most art apps are built around likes and scrolling. A heart tells an artist that someone liked their work, but not **why**, and not **what to do next**.
+
+Curve puts **constructive feedback** at the center:
+
+1. **Ask.** An artist uploads a piece and says exactly what they want feedback on, like *"Does the low angle distort his proportions?"*
+2. **Critique.** Viewers find the piece in the feed and leave written critiques.
+3. **Summarize.** Once a piece has 15 critiques, the artist can have **Gemini** turn them into a short summary: **strengths**, **what to improve**, and **concrete suggestions**.
+4. **Discover.** The feed learns which mediums each viewer engages with, while still mixing in variety.
+
+## Demo flow
+
+> **Upload → Discover → Critique → Summarize**
+
+1. Sign up and upload an artwork with a feedback question.
+2. Log in as a second user, find the piece in the feed, and leave a critique.
+3. Back as the artist, open the piece and click **Generate summary**.
+
+## Screenshots
+
+<!-- TODO: add screenshots or a demo GIF -->
+
+| Discover feed | Artwork + critiques | AI critique summary |
+| :---: | :---: | :---: |
+| _screenshot_ | _screenshot_ | _screenshot_ |
+
+## Features
+
+| | Feature | Details |
 | --- | --- | --- |
-| __________ | __________ | __________ |
-
-## The idea
-
-Traditional art-sharing feeds emphasize posting, liking, and scrolling. This project puts **constructive feedback** at the center:
-
-1. An artist uploads an artwork and indicates what kind of feedback they want (for example, composition or lighting).
-2. Viewers browse artworks and leave written critiques.
-3. The artist could then ask Gemini to summarize the feedback into **strengths**, **areas for improvement**, and **actionable suggestions**.
-4. In a future version, personalized recommendations could surface artworks a viewer is likely to engage with while maintaining variety in the feed.
-
-### MVP feature scope
-
-| Feature | Description |
-| --- | --- | 
-| Accounts | Sign up and log in with email, username, and password |
-| User profiles | View your own profile/artworks or browse another artist's profile |
-| Artwork feed | Browse artwork posts, newest first | 
-| Artwork uploads | Upload an image with title, description, medium, generation method, and critique focus | 
-| Artwork details | View a post, its artist, and its critiques | 
-| Comments | Read, create, edit, and delete critiques with ownership rules | 
-| AI summaries | Generate and retrieve structured summaries of an artwork's comments | 
+| 🔐 | **Accounts** | Sign up with username, email and password (with confirm-password and validation), JWT sessions that survive a refresh, change username and password |
+| 🖼️ | **Discover feed** | Masonry grid with filters: For You, Recent, Most Discussed, and by medium (Digital, Painting, Drawing, 3D, Photography) |
+| ⬆️ | **Uploads** | JPG, PNG or WebP up to 10 MB, with title, description, medium, genre (18 options) and a "what I want feedback on" prompt |
+| 🔍 | **Artwork page** | Full-size image with a lightbox, artist info, the feedback prompt, and related work |
+| 💬 | **Critiques** | Post, edit and delete. Up to 2,000 characters each and 50 per artwork. Commenters can edit their own; commenters **or** the artist can delete |
+| ✨ | **AI critique summary** | Artist-only. Unlocks at 15 critiques. The artist chooses when to generate, show, hide or update it |
+| 👤 | **Profiles** | Your own gallery with delete, and read-only public profiles at `/u/:username` |
+| 🎯 | **Recommendations** | An epsilon-greedy bandit that learns which mediums each viewer engages with ([see below](#recommendation-engine)) |
 
 ## Tech stack
 
 | Layer | Technology |
 | --- | --- |
-| Frontend | **React** · build tooling: __________ · language: __________ · styling: __________ |
-| Backend | **Node.js + Express**, JavaScript (CommonJS) |
-| Database | **PostgreSQL** |
-| ORM | **Prisma** (PostgreSQL driver adapter through `@prisma/adapter-pg`) |
-| Authentication | **JSON Web Tokens (JWT)**, Bearer-token authorization, `bcryptjs` password hashing |
-| Image uploads | **Multer** (memory storage, intended 10 MB file limit) |
-| Image hosting | **Cloudinary** |
-| AI summaries | **Google Gemini API** via `@google/genai` |
-| Frontend hosting | __________ |
-| Backend hosting | __________ |
-| Database hosting | __________ |
+| **Frontend** | React 19 · TypeScript · Vite · Tailwind CSS v4 · React Router v7 · lucide-react icons |
+| **Backend** | Node.js · Express 5 (CommonJS) |
+| **Database** | PostgreSQL · Prisma 7 with `@prisma/adapter-pg` |
+| **Auth** | JWT (Bearer tokens, 7-day expiry) · bcryptjs |
+| **Images** | Multer (in-memory, 10 MB limit) → Cloudinary |
+| **AI** | Google Gemini via `@google/genai` (structured JSON output) |
 
-### Architecture
+## Architecture
 
 ```text
-React web app
-   |  HTTPS / REST (JSON; multipart/form-data for uploads)
-   v
-Node.js + Express API
-   |-- JWT middleware -> authenticated user ID
-   |-- Controllers -> Prisma queries -> PostgreSQL
-   |-- Multer -> Cloudinary (artwork image hosting)
-   `-- Gemini API -> generated critique summaries -> PostgreSQL
+┌──────────────────────────┐        /api/*        ┌──────────────────────────────┐
+│  React + Vite (:5173)    │ ───────────────────▶ │  Express API (:3000)         │
+│                          │   JSON / multipart   │                              │
+│  pages → useApp() store  │   Bearer JWT         │  authenticate (JWT)          │
+│  api/client.ts           │ ◀─────────────────── │  controllers → Prisma        │
+│  api/mappers.ts          │                      │  multer → Cloudinary         │
+└──────────────────────────┘                      │  lib/gemini → summaries      │
+                                                  │  lib/recommender → feed      │
+                                                  └──────────────┬───────────────┘
+                                                                 ▼
+                                                           PostgreSQL
 ```
 
-The frontend handles page rendering, forms, and displaying results. The backend validates requests, enforces ownership, stores records, uploads images, and calls Gemini. **Gemini and Cloudinary credentials stay on the server.**
+- In development, **Vite proxies `/api` to the backend**, so the browser only ever talks to `localhost:5173`. No CORS setup is needed while developing.
+- **Gemini and Cloudinary keys stay on the server.** The frontend never sees them.
+- The frontend translates backend field names in one place, `src/api/mappers.ts` (for example `imageUrl` → `image`, `focus` → `feedbackOn`, `content` → `body`).
 
-## Data model
-
-The main Prisma models are:
-
-- **User** — `id`, `username`, `email`, account creation date, artworks; authentication password hash field: __________ (must match backend auth code).
-- **Artwork** — `id`, `title`, optional `description`, `medium`, `generated`, `focus`, `imageUrl`, `artistId`, `createdAt`.
-- **Comment** — `id`, `content`, `authorId`, `artworkId`, `createdAt`.
-- **CritiqueSummary** — `id`, `artworkId` (unique), string arrays `strengths`, `improvements`, `suggestions`, `commentCount`, `generatedAt`.
-
-Relationships:
-
-```text
-User 1 ---- * Artwork
-User 1 ---- * Comment
-Artwork 1 - * Comment
-Artwork 1 - 0..1 CritiqueSummary
-```
-
-All IDs are UUID **strings**. The `generated`, `medium`, and `focus` fields are currently strings, not enums or booleans. `imageUrl` refers to an image stored on Cloudinary, not image bytes stored in PostgreSQL.
-
-## API overview
-
-**Local base URL:** `http://localhost:3000/api` (or the port set by `SERVER_PORT`).  
-**Authentication header:** `Authorization: Bearer <JWT>` for protected endpoints.  
-**Response convention:** API routes generally return JSON objects or arrays directly. Errors use `{ "error": "..." }`. Deletions return `204 No Content`.
-
-### Authentication
-
-| Method | Endpoint | Auth | Purpose |
-| --- | --- | --- | --- |
-| POST | `/auth/signup` | No | Register; returns `{ token, user }` |
-| POST | `/auth/login` | No | Log in; returns `{ token, user }` |
-
-### Users
-
-| Method | Endpoint | Auth | Purpose |
-| --- | --- | --- | --- |
-| GET | `/users/me` | Yes | Current user's profile and artworks |
-| PATCH | `/users/me` | Yes | Update username and/or email |
-| GET | `/users/:username` | No | Public profile and artwork gallery |
-
-### Artworks
-
-| Method | Endpoint | Auth | Purpose |
-| --- | --- | --- | --- |
-| GET | `/artworks` | No | Feed of recent artworks |
-| GET | `/artworks/:id` | No | Artwork details and artist information |
-| POST | `/artworks` | Yes | Create artwork with image upload |
-| PATCH | `/artworks/:id` | Artist only | Update artwork metadata |
-| DELETE | `/artworks/:id` | Artist only | Delete artwork |
-
-### Comments (nested under artworks)
-
-| Method | Endpoint | Auth | Purpose |
-| --- | --- | --- | --- |
-| GET | `/artworks/:artworkId/comments` | No | Read all comments on an artwork |
-| POST | `/artworks/:artworkId/comments` | Yes | Write a comment |
-| PATCH | `/artworks/:artworkId/comments/:commentId` | Commenter only | Edit own comment |
-| DELETE | `/artworks/:artworkId/comments/:commentId` | Commenter **or** artist | Remove a comment |
-
-### AI critique summaries (Gemini)
-
-| Method | Endpoint | Auth | Purpose |
-| --- | --- | --- | --- |
-| GET | `/artworks/:artworkId/summary` | Artist only | Read the most recently saved summary |
-| POST | `/artworks/:artworkId/summary` | Artist only | Call Gemini, save, and return a new summary |
-
-> These summary routes are part of the planned Gemini integration. Confirm that they are mounted and tested before listing them as live in a deployed demo.
-
-**Example AI summary response** (illustrative):
-
-```json
-{
-  "id": "summary-uuid",
-  "artworkId": "artwork-uuid",
-  "strengths": ["Viewers liked the warm colors and sense of depth."],
-  "improvements": ["Several comments said the focal point was unclear."],
-  "suggestions": ["Try increasing contrast around the main subject."],
-  "commentCount": 6,
-  "generatedAt": "2026-10-17T20:00:00.000Z"
-}
-```
-
-For the full request/response details and frontend integration examples, see [FRONTEND_API_README.md](./FRONTEND_API_README.md) **if that file is included in the repository**.
-
-## Running locally
+## Getting started
 
 ### Prerequisites
 
-- Node.js **20+** (for the Gemini SDK), npm
-- PostgreSQL or a hosted PostgreSQL database
-- Cloudinary account
-- Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey)
-- Git
+- **Node.js 20+** and npm
+- **PostgreSQL** (local or hosted)
+- A **Cloudinary** account (needed for uploads)
+- A **Gemini API key** from [Google AI Studio](https://aistudio.google.com/apikey) (needed for summaries)
 
-### 1. Clone the project
+### 1. Clone
 
 ```bash
-git clone __________
-cd __________
+git clone https://github.com/Hgupta1912/Talc.git
+cd Talc
 ```
 
-The commands below assume `frontend/` and `backend/` directories. **Adjust these paths to match the actual repository structure.**
-
-### 2. Configure the backend
+### 2. Backend (`server/`)
 
 ```bash
-cd backend
+cd server
 npm install
 ```
 
-Create `backend/.env` with:
+Create `server/.env`:
 
 ```dotenv
-DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE"
-JWT_SECRET="REPLACE_WITH_A_LONG_RANDOM_SECRET"
-FRONTEND_URL="http://localhost:5173"
+DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/DBNAME
+JWT_SECRET=replace-with-a-long-random-string
+FRONTEND_URL=http://localhost:5173
 SERVER_PORT=3000
 
-CLOUDINARY_CLOUD_NAME="__________"
-CLOUDINARY_API_KEY="__________"
-CLOUDINARY_API_SECRET="__________"
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
 
-GEMINI_API_KEY="__________"
-GEMINI_MODEL="__________"
+GEMINI_API_KEY=
+# GEMINI_MODEL=   (optional, overrides the default model)
 ```
 
-Generate a suitable JWT secret, for example:
+> If your Postgres password contains `@ : / # ?`, URL-encode them (for example `@` → `%40`).
+> To make a JWT secret: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+
+Set up the database and start the server:
 
 ```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+npx prisma migrate deploy   # create the tables
+npx prisma generate         # build the Prisma client (in generated/, which is gitignored)
+npm run dev                 # node --watch app.js → http://localhost:3000
 ```
 
-Configure `DATABASE_URL` in the project's Prisma configuration (Prisma 7) and use **a separate database from Hiemetry**.
+### 3. Frontend (`frontend/`)
 
-Apply the project's migrations and generate the Prisma client:
-
-```bash
-npx prisma migrate dev
-npx prisma generate
-```
-
-Start the backend using the script in `backend/package.json`:
-
-```bash
-npm run __________
-```
-
-Expected local server URL: `http://localhost:3000`, unless configured otherwise.
-
-### 3. Configure the frontend
-
-In a separate terminal:
+In a **second terminal**:
 
 ```bash
 cd frontend
 npm install
-npm run __________
+cp .env.example .env        # Windows: copy .env.example .env
+npm run dev                 # http://localhost:5173
 ```
 
-Frontend environment variables, if required:
+`frontend/.env`:
 
 ```dotenv
-# Exact name depends on the frontend setup:
-VITE_API_URL="http://localhost:3000/api"
+BACKEND_URL=http://localhost:3000   # where Vite forwards /api
+VITE_USE_POLLING=false              # true if hot reload misses saves in Docker
 ```
 
-Expected frontend local URL: `http://localhost:5173` **if using Vite**; otherwise __________.
+> There is **no `package.json` at the repo root**. Always run npm commands inside `server/` or `frontend/`.
 
-### 4. Verify the application
+### 4. (Optional) Demo data
 
-1. Register or log in.
-2. Upload a painting or other artwork (JPEG, PNG, or WebP, up to the configured limit).
-3. Confirm it appears in the feed and on the artist's profile.
-4. Log in as a second user and leave a critique.
-5. Return to the original artist's account and generate the Gemini critique summary.
+To fill the feed with 60 public-domain works from the [National Gallery of Art open-access collection](https://www.nga.gov/artworks/free-images-and-open-access):
 
-## Integration examples
-
-### Authenticated JSON request
-
-```js
-const response = await fetch('http://localhost:3000/api/users/me', {
-  headers: { Authorization: `Bearer ${token}` },
-});
-const user = await response.json();
+```bash
+cd server
+node scripts/seed-nga.js                     # add 60 artworks from 48 artists
+node scripts/seed-comments.js "Your Title"   # add 15 sample critiques to one of your pieces
+node scripts/seed-nga.js --remove            # remove all seeded data
 ```
 
-### Upload an artwork
+### Staying up to date
 
-```js
-const form = new FormData();
-form.append('image', selectedFile);
-form.append('title', title);
-form.append('description', description);
-form.append('medium', medium);
-form.append('generated', generated);
-form.append('focus', focus);
-
-const response = await fetch('http://localhost:3000/api/artworks', {
-  method: 'POST',
-  headers: { Authorization: `Bearer ${token}` },
-  body: form,
-});
+```bash
+git pull origin main
+cd server   && npm install && npx prisma migrate deploy && npx prisma generate
+cd ../frontend && npm install
 ```
 
-**Do not manually add a `Content-Type` header when sending `FormData`**; the browser sets the multipart boundary. Do not send `artistId` or `authorId` from the client: the backend obtains those from the authenticated JWT.
+Stop the backend (**Ctrl+C**) **before** running these. `node --watch` restarts whenever files in `node_modules/` or `generated/` change.
 
-### Generate a critique summary
+## API reference
 
-```js
-const response = await fetch(
-  `http://localhost:3000/api/artworks/${artworkId}/summary`,
-  {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-  }
-);
-const summary = await response.json();
+**Base URL:** `http://localhost:3000/api`. Protected routes need `Authorization: Bearer <token>`.
+Errors look like `{ "error": "message" }`. Deletes return `204 No Content`.
+
+<details>
+<summary><strong>Auth</strong></summary>
+
+| Method | Endpoint | Auth | Purpose |
+| --- | --- | --- | --- |
+| POST | `/auth/signup` | – | Register → `{ token, user }` |
+| POST | `/auth/login` | – | Log in → `{ token, user }` |
+
+</details>
+
+<details>
+<summary><strong>Users</strong></summary>
+
+| Method | Endpoint | Auth | Purpose |
+| --- | --- | --- | --- |
+| GET | `/users/me` | ✅ | Your profile + artworks |
+| PATCH | `/users/me` | ✅ | Change username |
+| PATCH | `/users/me/password` | ✅ | Change password (rate-limited) |
+| GET | `/users/:username` | – | Public profile + gallery |
+
+</details>
+
+<details>
+<summary><strong>Artworks</strong></summary>
+
+| Method | Endpoint | Auth | Purpose |
+| --- | --- | --- | --- |
+| GET | `/artworks` | – | Feed (see [recommendations](#recommendation-engine)) |
+| GET | `/artworks/:id` | – | One artwork + artist |
+| POST | `/artworks` | ✅ | Upload (`multipart/form-data`: `image`, `title`, `description`, `medium`, `genre`, `focus`) |
+| PATCH | `/artworks/:id` | Artist | Edit details |
+| DELETE | `/artworks/:id` | Artist | Delete (comments and summary cascade) |
+
+</details>
+
+<details>
+<summary><strong>Critiques</strong></summary>
+
+| Method | Endpoint | Auth | Purpose |
+| --- | --- | --- | --- |
+| GET | `/artworks/:artworkId/comments` | – | All critiques |
+| POST | `/artworks/:artworkId/comments` | ✅ | Post (1–2,000 characters) |
+| PATCH | `/artworks/:artworkId/comments/:commentId` | Commenter | Edit |
+| DELETE | `/artworks/:artworkId/comments/:commentId` | Commenter or artist | Delete |
+
+</details>
+
+<details>
+<summary><strong>AI critique summary</strong></summary>
+
+| Method | Endpoint | Auth | Purpose |
+| --- | --- | --- | --- |
+| GET | `/artworks/:artworkId/summary` | Artist | Saved summary (404 if none yet) |
+| POST | `/artworks/:artworkId/summary` | Artist | Generate or regenerate (5 per 15 minutes) |
+
+```json
+{
+  "strengths": ["The eye contact with the camera is the strongest element."],
+  "improvements": ["The blown-out skylight pulls focus from the subject."],
+  "suggestions": ["Shoot at eye level and crop out the ceiling light."],
+  "commentCount": 15,
+  "generatedAt": "2026-10-18T15:00:00.000Z"
+}
 ```
 
-The frontend should show a loading state while Gemini generates the response.
+</details>
 
-## AI approach
+## How the AI works
 
-**Critique summarization:** The server retrieves comments associated with an artwork and sends the comment text plus relevant artwork metadata to Gemini. It asks for structured JSON containing `strengths`, `improvements`, and `suggestions`, then stores the result in `CritiqueSummary` through Prisma. The MVP does **not** require RAG, embeddings, or an AI agent. Summary conclusions should reflect the actual comments rather than invented observations about the image.
+### Critique summaries
 
-**Future artwork recommendations:** A potential enhancement is an online-learning or contextual-bandit recommender that adapts to user interests and comment engagement, while encouraging diversity. An embedding-based per-user Q-table is a research/stretch idea, **not a prerequisite for the hackathon demo**.
+1. The server loads the artwork's title, description, medium, genre and **feedback focus**, plus its 50 most recent critiques.
+2. It sends them to Gemini with a fixed JSON schema (`strengths`, `improvements`, `suggestions`), at a low temperature.
+3. The instructions tell Gemini to:
+   - base every point **only on the comments**, never claim to have seen the image, and never invent criticism
+   - treat comment text **as data, not instructions**, which guards against prompt injection
+   - pay attention to what the artist asked for feedback on
+4. The result is validated and saved to `CritiqueSummary`. Regenerating replaces it.
 
-## Current MVP constraints and follow-ups
+On the frontend, only the artist sees the summary card. It shows a progress bar until there are 15 critiques, then a **Generate summary** button. An **Update** button appears once newer critiques have come in since the last summary.
 
-- The feed design uses newest-first ranking; pagination, advanced discovery, and learned recommendation ranking are not yet specified.
-- The initial summary design considers up to 50 recent comments and replaces the stored summary on a new generation request. A saved summary may become stale after comments change unless regenerated.
-- Artwork image replacement is not currently part of the PATCH endpoint.
-- Cloudinary cleanup on artwork deletion requires tracking the image's `public_id` (or implementing another reliable cleanup mechanism); verify before enabling deletion widely.
-- Ensure database cascade rules handle dependent comments/summaries if artwork deletion is enabled.
-- Confirm that the Prisma `User` password field matches what the reused auth controller reads and writes; the original Hiemetry controller expects `password`.
-- JWT logout/revocation, robust upload-content verification, and stronger authentication protections are future production-hardening tasks.
-- Frontend responsiveness, accessibility, final UI design, and deployment details: __________.
+### Recommendation engine
 
-## Team contributions
+`server/lib/recommender.js` treats each **medium** as an arm of a multi-armed bandit:
 
-| Area | Contributor | Notes |
+- **Explore (30%):** pick a random medium, so the feed keeps variety.
+- **Exploit (70%):** pick the medium with the best smoothed engagement rate, `(commented + 1) / (shown + 2)`.
+- **Reward:** commenting on a recommended piece counts as engagement for that medium.
+- Each user's stats are stored in `User.mediumEngagement` (JSON). The viewer's own work is excluded.
+
+## Project structure
+
+```text
+Talc/
+├── frontend/                 React + Vite client       → see frontend/README.md
+│   └── src/
+│       ├── api/              fetch wrapper + field mappers
+│       ├── components/       grid, critiques, AI summary card, navbar, UI kit
+│       ├── pages/            Discover, ArtworkDetail, Upload, Profile, Settings, Login
+│       ├── store/            AppContext (all state + API actions), useApp hook
+│       └── types/            API shapes vs UI shapes
+└── server/                   Express API
+    ├── controllers/          auth, users, artworks, comments, summaries
+    ├── routes/               URL → controller mapping
+    ├── middleware/           JWT auth, multer upload, error handler
+    ├── lib/                  cloudinary, gemini, recommender
+    ├── db/                   Prisma client + all queries
+    ├── prisma/               schema.prisma + migrations
+    └── scripts/              demo-data seeders
+```
+
+## Data model
+
+```text
+User 1 ──── * Artwork 1 ──── * Comment
+  │                  │
+  └──── * Comment    └──── 0..1 CritiqueSummary
+```
+
+| Model | Key fields |
+| --- | --- |
+| **User** | `id` (UUID), `username` (unique), `email` (unique), `password` (bcrypt hash), `mediumEngagement` (JSON), `createdAt` |
+| **Artwork** | `id`, `title`, `description?`, `medium`, `genre`, `focus`, `imageUrl`, `imagePublicId?`, `artistId`, `createdAt` |
+| **Comment** | `id`, `content`, `authorId`, `artworkId`, `createdAt` |
+| **CritiqueSummary** | `id`, `artworkId` (unique), `strengths[]`, `improvements[]`, `suggestions[]`, `commentCount`, `generatedAt` |
+
+Deleting an artwork **cascades** to its comments and summary.
+
+## Security notes
+
+- Passwords are hashed with bcrypt. JWTs expire after 7 days.
+- An expired or invalid token logs the user out automatically on the frontend.
+- Ownership is always checked on the server, from the JWT, never from IDs the client sends.
+- Rate limits: 1,000 requests per 15 minutes per IP overall, plus tighter limits on password changes and AI summaries.
+- Uploads are restricted to JPEG, PNG and WebP, 10 MB, one file per request.
+- The JWT is kept in `localStorage` so sessions survive a refresh. Set `PERSIST_TOKEN = false` in `frontend/src/store/AppContext.tsx` to keep it in memory only.
+
+## Known limitations
+
+- **Recommendations aren't active yet.** `GET /artworks` doesn't use the `authenticate` middleware, and the frontend doesn't send a token for the feed, so everyone gets the anonymous feed (the 10 newest artworks).
+- The 50-critique and 15-critique-for-summary limits are enforced in the **frontend only**.
+- Deleting an artwork doesn't yet delete its image from Cloudinary.
+- There's no pagination or infinite scroll. The feed is capped at 10.
+- A saved summary can go stale as new critiques come in. The artist regenerates it with **Update**.
+- There's no email verification, password reset or token revocation yet.
+
+## Team
+
+| Name | Role | Built |
 | --- | --- | --- |
-| Backend API / database / integrations | __________ | Express, Prisma, PostgreSQL, Multer, Cloudinary, Gemini |
-| Frontend UI / API integration | __________ | React and __________ |
-| Design / product decisions | __________ | __________ |
+| **Hans Gupta** | Backend | Express API, Prisma schema and migrations, auth, Cloudinary uploads, Gemini summaries, recommender |
+| **Angela Liu** | Frontend | UI design, React app, API integration, AI summary UI, demo-data seeding |
 
-## Hackathon demo flow
+## Credits
 
-**Upload → Discover → Critique → Summarize.** One user uploads an artwork and states what they want feedback on. Another user opens it from the feed and comments. The original artist then generates an AI summary to see the main strengths, weaknesses, and suggested next steps.
+- Demo artwork: [National Gallery of Art, Washington](https://www.nga.gov/artworks/free-images-and-open-access), open access
+- Avatars: [DiceBear](https://www.dicebear.com) "Lorelei" (CC0)
+- Icons: [Lucide](https://lucide.dev)
+- Fonts: DM Sans and Manrope (Google Fonts)
 
 ## License
 
-__________
+[MIT](LICENSE) © 2026 Hans Gupta and Angela Liu
